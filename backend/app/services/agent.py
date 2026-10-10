@@ -127,51 +127,64 @@ class AgentTools:
         now = datetime.now(timezone.utc)
 
         # Check deadline
-        if campaign.closes_at and now > campaign.closes_at:
-            if campaign.late_order_policy == "reject":
-                return {"success": False, "error": "Order deadline has passed. Late orders are not accepted."}
-            elif campaign.late_order_policy == "allow_with_approval":
-                # Create exception for approval
-                order = Order(
-                    campaign_id=campaign_id,
-                    customer_id=customer_id,
-                    status="draft",
-                    payment_status="unpaid",
-                    fulfilment_status="not_ready",
-                    total_amount=0,
-                )
-                self.db.add(order)
-                self.db.flush()
-
-                variant = self.db.query(ProductVariant).filter(ProductVariant.id == variant_id).first()
-                if variant:
-                    item = OrderItem(
-                        order_id=order.id,
-                        product_variant_id=variant_id,
-                        quantity=quantity,
-                        unit_price=variant.product.price,
+        if campaign.closes_at:
+            closes_at = campaign.closes_at
+        
+            # Treat timezone-naive database timestamps as UTC
+            if closes_at.tzinfo is None:
+                closes_at = closes_at.replace(tzinfo=timezone.utc)
+            else:
+                closes_at = closes_at.astimezone(timezone.utc)
+            if now > closes_at:
+                # Make the current time timezone-aware in UTC
+                if now.tzinfo is None:
+                    now = now.replace(tzinfo=timezone.utc)
+                else:
+                    now = now.astimezone(timezone.utc)
+                if campaign.late_order_policy == "reject":
+                    return {"success": False, "error": "Order deadline has passed. Late orders are not accepted."}
+                elif campaign.late_order_policy == "allow_with_approval":
+                    # Create exception for approval
+                    order = Order(
+                        campaign_id=campaign_id,
+                        customer_id=customer_id,
+                        status="draft",
+                        payment_status="unpaid",
+                        fulfilment_status="not_ready",
+                        total_amount=0,
                     )
-                    self.db.add(item)
-                    order.total_amount = variant.product.price * quantity
-
-                exc = Exception_(
-                    type="late_order",
-                    order_id=order.id,
-                    description=f"Customer requested order after deadline. Campaign: {campaign.name}. Late order policy: allow_with_approval.",
-                    recommended_action="Review and approve or reject the late order request.",
-                    status="open",
-                )
-                self.db.add(exc)
-                self.db.commit()
-
-                self.log_action("ai", "create_exception", "exception", exc.id,
-                                "Late order after deadline", "Exception created for approval")
-                return {
-                    "success": False,
-                    "error": "Order deadline has passed. Your request has been forwarded to the admin for approval.",
-                    "exception_id": exc.id,
-                    "order_id": order.id,
-                }
+                    self.db.add(order)
+                    self.db.flush()
+    
+                    variant = self.db.query(ProductVariant).filter(ProductVariant.id == variant_id).first()
+                    if variant:
+                        item = OrderItem(
+                            order_id=order.id,
+                            product_variant_id=variant_id,
+                            quantity=quantity,
+                            unit_price=variant.product.price,
+                        )
+                        self.db.add(item)
+                        order.total_amount = variant.product.price * quantity
+    
+                    exc = Exception_(
+                        type="late_order",
+                        order_id=order.id,
+                        description=f"Customer requested order after deadline. Campaign: {campaign.name}. Late order policy: allow_with_approval.",
+                        recommended_action="Review and approve or reject the late order request.",
+                        status="open",
+                    )
+                    self.db.add(exc)
+                    self.db.commit()
+    
+                    self.log_action("ai", "create_exception", "exception", exc.id,
+                                    "Late order after deadline", "Exception created for approval")
+                    return {
+                        "success": False,
+                        "error": "Order deadline has passed. Your request has been forwarded to the admin for approval.",
+                        "exception_id": exc.id,
+                        "order_id": order.id,
+                    }
 
         variant = self.db.query(ProductVariant).filter(ProductVariant.id == variant_id).first()
         if not variant:
@@ -565,18 +578,37 @@ class AIAgent:
         # Find or create customer
         customer = self.tools.find_or_create_customer(display_name, telegram_user_id, telegram_username)
 
+        
         # Get or create conversation
         if not conversation_id:
-            conv = Conversation(
-                customer_id=customer.id,
-                platform="telegram",
-                conversation_reference=f"claw:sender:telegram:{telegram_user_id or 'unknown'}",
-                status="open",
+            conv = (
+                self.db.query(Conversation)
+                .filter(
+                    Conversation.customer_id == customer.id,
+                    Conversation.platform == "telegram",
+                    Conversation.status == "open",
+                    Conversation.conversation_reference
+                    == f"claw:sender:telegram:{telegram_user_id or 'unknown'}",
+                )
+                .order_by(Conversation.id.desc())
+                .first()
             )
-            self.db.add(conv)
-            self.db.commit()
-            self.db.refresh(conv)
+
+            if not conv:
+                conv = Conversation(
+                    customer_id=customer.id,
+                    platform="telegram",
+                    conversation_reference=(
+                        f"claw:sender:telegram:{telegram_user_id or 'unknown'}"
+                    ),
+                    status="open",
+                )
+                self.db.add(conv)
+                self.db.commit()
+                self.db.refresh(conv)
+
             conversation_id = conv.id
+
 
         # Save customer message
         intent = self.classify_intent(text)
