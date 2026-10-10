@@ -31,7 +31,7 @@ function Sidebar() {
   return (
     <aside className="w-64 bg-white border-r border-stone-200 min-h-screen flex flex-col">
       <div className="p-6 border-b border-stone-200">
-        <h1 className="text-lg font-bold text-stone-900">StudyBiz AI</h1>
+        <h1 className="text-lg font-bold text-stone-900">Synchrost AI</h1>
         <p className="text-xs text-stone-500 mt-1">Your AI Co-Admin</p>
       </div>
       <nav className="flex-1 p-3">
