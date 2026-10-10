@@ -1,4 +1,4 @@
-# StudyBiz AI
+# Synchrost AI
 
 Your AI Co-Admin. Your Business, Still Moving.
 
