@@ -493,13 +493,35 @@ class AIAgent:
 
     # Keywords for intent classification
     INTENT_KEYWORDS = {
-        "new_order": ["order", "buy", "want", "get", "purchase", "book"],
-        "order_change": ["change", "add", "modify", "switch", "swap", "instead"],
-        "payment_enquiry": ["paid", "transfer", "payment", "money", "bank", "receipt", "screenshot"],
-        "order_status": ["status", "track", "where", "when", "arrive", "deliver", "dispatch"],
-        "cancellation": ["cancel", "refund", "withdraw", "stop"],
-        "complaint": ["complaint", "wrong", "bad", "broken", "issue", "problem", "angry"],
-        "product_question": ["price", "size", "color", "colour", "available", "how much", "deadline", "close", "open"],
+        "new_order": [
+            "order", "buy", "want", "get", "purchase",
+            "book", "i want", "i would like"
+        ],
+        "order_change": [
+            "change", "add", "modify", "switch", "swap", "instead"
+        ],
+        "payment_enquiry": [
+            "paid", "transfer", "payment", "money",
+            "bank", "receipt", "screenshot"
+        ],
+        "order_status": [
+            "status", "track", "where", "when",
+            "arrive", "deliver", "dispatch"
+        ],
+        "cancellation": [
+            "cancel", "refund", "withdraw", "stop"
+        ],
+        "complaint": [
+            "complaint", "wrong", "bad", "broken",
+            "issue", "problem", "angry"
+        ],
+        "product_question": [
+            "product", "products", "what products",
+            "what do you sell", "available", "availability",
+            "price", "size", "colour", "color",
+            "how much", "deadline", "close", "open",
+            "what items", "catalogue", "catalog"
+        ]
     }
 
     def __init__(self, db: Session, llm_api_key: str = "", demo_mode: bool = True):
@@ -509,16 +531,33 @@ class AIAgent:
         self.demo_mode = demo_mode or not llm_api_key
 
     def classify_intent(self, text):
-        """Classify customer intent from message text."""
-        text_lower = text.lower()
+        text_lower = text.lower().strip()
+    
+        # Recognise replies containing order details.
+        order_info = self.extract_order_info(text)
+    
+        if (
+            order_info["quantity"] is not None
+            and order_info["color"] is not None
+            and order_info["size"] is not None
+        ):
+            return "new_order"
+    
+        # Keep your existing keyword-counting logic below.
         scores = {}
+    
         for intent, keywords in self.INTENT_KEYWORDS.items():
-            scores[intent] = sum(1 for kw in keywords if kw in text_lower)
-
-        best = max(scores, key=scores.get) if scores else "other"
-        if scores.get(best, 0) == 0:
+            scores[intent] = sum(
+                1 for keyword in keywords
+                if keyword in text_lower
+            )
+    
+        best_intent = max(scores, key=scores.get)
+    
+        if scores[best_intent] == 0:
             return "other"
-        return best
+    
+        return best_intent
 
     
     def extract_order_info(self, text):
