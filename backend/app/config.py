@@ -17,7 +17,7 @@ for p in _env_paths:
 
 
 class Settings(BaseSettings):
-    APP_NAME: str = "StudyBiz AI"
+    APP_NAME: str = "Synchrost AI"
     DEBUG: bool = True
     SECRET_KEY: str = "dev-secret-key"
 
@@ -28,10 +28,10 @@ class Settings(BaseSettings):
     TELEGRAM_WEBHOOK_URL: str = ""
 
     LLM_API_KEY: str = ""
-    LLM_API_BASE: str = "https://api.openai.com/v1"
-    LLM_MODEL: str = "gpt-4o-mini"
+    LLM_API_BASE: str = "https://generativelanguage.googleapis.com/v1beta/openai/"
+    LLM_MODEL: str = "gemini-3.8-flash"
 
-    DEMO_MODE: bool = True
+    DEMO_MODE: bool = False
     # EXAM_MODE is the internal name; UI shows it as "Busy Mode"
     EXAM_MODE: bool = False
 
