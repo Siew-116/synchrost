@@ -1,4 +1,3 @@
-```python
 """Telegram Bot API integration service.
 
 Supports:
@@ -288,4 +287,3 @@ class TelegramService:
         except Exception as exc:
             print(f"[TELEGRAM ERROR] Polling failed: {exc}")
             return []
-```
