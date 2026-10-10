@@ -1,0 +1,63 @@
+version: "3.9"
+
+services:
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: studybiz-backend
+    ports:
+      - "8000:8000"
+    environment:
+      - DATABASE_URL=sqlite:///./data/studybiz.db
+      - JWT_SECRET_KEY=dormathon2026-studybiz-ai-secret-key-change-in-prod
+      - JWT_ALGORITHM=HS256
+      - ACCESS_TOKEN_EXPIRE_MINUTES=10080
+      - CORS_ORIGINS=http://localhost:5173,http://127.0.0.1:5173,http://localhost:80
+      - AI_MODEL_PROVIDER=none
+      - APP_ENV=development
+    volumes:
+      - backend-data:/app/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import httpx; r=httpx.get('http://localhost:8000/health'); exit(0 if r.status_code==200 else 1)"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: studybiz-frontend
+    ports:
+      - "5173:80"
+    depends_on:
+      backend:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # Seed data initialization (runs once)
+  seed:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: studybiz-seed
+    command: ["python", "seed_data.py"]
+    environment:
+      - DATABASE_URL=sqlite:///./data/studybiz.db
+      - JWT_SECRET_KEY=dormathon2026-studybiz-ai-secret-key-change-in-prod
+      - JWT_ALGORITHM=HS256
+      - ACCESS_TOKEN_EXPIRE_MINUTES=10080
+      - CORS_ORIGINS=http://localhost:5173
+      - APP_ENV=development
+    volumes:
+      - backend-data:/app/data
+    depends_on:
+      backend:
+        condition: service_healthy
+    restart: "no"
+
+volumes:
+  backend-data:

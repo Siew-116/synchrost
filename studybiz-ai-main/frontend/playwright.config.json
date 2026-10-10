@@ -1,0 +1,26 @@
+{
+  "$schema": "https://playwright.dev/test-config.json",
+  "testDir": "../tests",
+  "testMatch": "*.py",
+  "timeout": 30000,
+  "expect": {
+    "timeout": 10000
+  },
+  "use": {
+    "baseURL": "http://127.0.0.1:5173",
+    "headless": true,
+    "viewport": { "width": 1280, "height": 720 }
+  },
+  "projects": [
+    {
+      "name": "chromium",
+      "use": { "browserName": "chromium" }
+    }
+  ],
+  "webServer": {
+    "command": "cd backend && venv/Scripts/python.exe -m uvicorn app.main:app --host 127.0.0.1 --port 8000",
+    "url": "http://127.0.0.1:8000/health",
+    "timeout": 30000,
+    "reuseExistingServer": true
+  }
+}

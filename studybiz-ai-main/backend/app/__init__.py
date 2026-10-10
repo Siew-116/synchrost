@@ -1,0 +1,1 @@
+"""StudyBiz AI Backend Application."""
