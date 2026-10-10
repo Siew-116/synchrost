@@ -100,23 +100,60 @@ class AgentTools:
                       for oi in o.items for v in [oi.variant]],
         } for o in orders]
 
-    def find_or_create_customer(self, display_name, telegram_user_id=None, telegram_username=None):
-        if telegram_user_id:
-            c = self.db.query(Customer).filter(Customer.telegram_user_id == telegram_user_id).first()
-            if c:
-                if telegram_username and c.telegram_username != telegram_username:
-                    c.telegram_username = telegram_username
-                    self.db.commit()
-                return c
-        c = Customer(
-            display_name=display_name,
+    
+    def find_or_create_customer(
+        self,
+        display_name,
+        telegram_user_id=None,
+        telegram_username=None,
+    ):
+        """Find an existing Telegram customer or create one."""
+    
+        # A stable Telegram ID is required for reliable customer matching.
+        if telegram_user_id is None or not str(telegram_user_id).strip():
+            raise ValueError(
+                "telegram_user_id is required to identify a Telegram customer."
+            )
+    
+        telegram_user_id = str(telegram_user_id).strip()
+    
+        customer = (
+            self.db.query(Customer)
+            .filter(Customer.telegram_user_id == telegram_user_id)
+            .first()
+        )
+    
+        if customer:
+            customer.display_name = display_name or customer.display_name
+    
+            if telegram_username is not None:
+                customer.telegram_username = telegram_username
+    
+            self.db.commit()
+            self.db.refresh(customer)
+            print(
+                f"[CUSTOMER DEBUG] Reused customer_id={customer.id}, "
+                f"telegram_user_id={telegram_user_id}"
+            )
+            return customer
+    
+        customer = Customer(
+            display_name=display_name or "Telegram Customer",
             telegram_user_id=telegram_user_id,
             telegram_username=telegram_username,
         )
-        self.db.add(c)
+    
+        self.db.add(customer)
         self.db.commit()
-        self.db.refresh(c)
-        return c
+        self.db.refresh(customer)
+    
+        print(
+            f"[CUSTOMER DEBUG] Created customer_id={customer.id}, "
+            f"telegram_user_id={telegram_user_id}"
+        )
+    
+        return customer
+
 
     def create_pending_order(self, campaign_id, customer_id, variant_id, quantity):
         """Create a pending order. Validates campaign status, variant, and capacity."""
@@ -483,17 +520,23 @@ class AIAgent:
             return "other"
         return best
 
-    def extract_order_info(self, text):
-        """Extract order details from a customer's message."""
-        import re
     
+    def extract_order_info(self, text):
+        """Extract quantity, colour, and size from order-related text."""
         text_lower = text.lower()
     
-        # Extract quantity
-        qty_match = re.search(r'\b(\d+)\b', text)
+        # Remove numeric sizes before extracting quantity.
+        quantity_text = re.sub(
+            r"\bsize\s*\d+\b",
+            " ",
+            text_lower,
+        )
+    
+        # Extract numeric quantity.
+        qty_match = re.search(r"\b(\d+)\b", quantity_text)
         quantity = int(qty_match.group(1)) if qty_match else None
     
-        # Check for number words if no numeric quantity was found
+        # Extract quantity written as a word.
         if quantity is None:
             word_nums = {
                 "one": 1,
@@ -508,79 +551,66 @@ class AIAgent:
                 "ten": 10,
             }
     
-            for word, num in word_nums.items():
-                if re.search(rf'\b{word}\b', text_lower):
-                    quantity = num
+            for word, number in word_nums.items():
+                if re.search(rf"\b{word}\b", quantity_text):
+                    quantity = number
                     break
     
-        # Extract color
+        # Extract colour.
         colors = [
-            "black",
-            "white",
-            "red",
-            "blue",
-            "green",
-            "yellow",
-            "pink",
-            "purple",
-            "orange",
-            "brown",
-            "grey",
-            "gray",
+            "black", "white", "red", "blue", "green", "yellow",
+            "pink", "purple", "orange", "brown", "grey", "gray",
             "beige",
         ]
     
-        color = None
-        for c in colors:
-            if re.search(rf'\b{c}\b', text_lower):
-                color = c
-                break
+        color = next(
+            (
+                c for c in colors
+                if re.search(rf"\b{c}\b", text_lower)
+            ),
+            None,
+        )
     
-        # Extract size
-        size = None
+        # Extract size, including replies such as "M" or "Size M".
         size_match = re.search(
-            r'\b(?:size\s*)?(XS|S|M|L|XL|XXL|XXXL)\b',
+            r"\b(?:size\s*)?(XXXL|XXL|XL|XS|S|M|L)\b",
             text,
             re.IGNORECASE,
         )
-    
-        if size_match:
-            size = size_match.group(1).upper()
+        size = size_match.group(1).upper() if size_match else None
     
         return {
             "quantity": quantity,
             "color": color,
             "size": size,
         }
-        
-    def find_variant(self, campaign_id, color, size):
-        """Find a product variant matching the extracted color and size."""
-        availability = self.tools.get_product_availability(campaign_id)
-        for v in availability:
-            attrs_lower = v["attributes"].lower()
-            color_match = color.lower() in attrs_lower if color else True
-            size_match = size.lower() in attrs_lower if size else True
-            if color_match and size_match:
-                return v
-        return None
 
-    def process_customer_message(self, customer_id, display_name, text, telegram_user_id=None, telegram_username=None, conversation_id=None):
-        """Process an incoming customer message end-to-end.
 
-        This is the core workflow:
-        1. Understand intention
-        2. Extract order information
-        3. Validate against records
-        4. Execute permitted actions
-        5. Return response
-        6. Detect exceptions and escalate
-        """
-        # Find or create customer
-        customer = self.tools.find_or_create_customer(display_name, telegram_user_id, telegram_username)
-
-        
-        # Get or create conversation
+    
+    def process_customer_message(
+        self,
+        customer_id,
+        display_name,
+        text,
+        telegram_user_id=None,
+        telegram_username=None,
+        conversation_id=None,
+    ):
+        """Process a customer message and continue incomplete orders."""
+    
+        # Find or create the customer.
+        customer = self.tools.find_or_create_customer(
+            display_name=display_name,
+            telegram_user_id=telegram_user_id,
+            telegram_username=telegram_username,
+        )
+    
+        # Find or create the customer's open Telegram conversation.
         if not conversation_id:
+            conversation_reference = (
+                f"claw:sender:telegram:{telegram_user_id}"
+            )
+    
             conv = (
                 self.db.query(Conversation)
                 .filter(
@@ -588,30 +618,91 @@ class AIAgent:
                     Conversation.platform == "telegram",
                     Conversation.status == "open",
                     Conversation.conversation_reference
-                    == f"claw:sender:telegram:{telegram_user_id or 'unknown'}",
+                    == conversation_reference,
                 )
                 .order_by(Conversation.id.desc())
                 .first()
             )
-
-            if not conv:
+    
+            if conv is None:
                 conv = Conversation(
                     customer_id=customer.id,
                     platform="telegram",
-                    conversation_reference=(
-                        f"claw:sender:telegram:{telegram_user_id or 'unknown'}"
-                    ),
+                    conversation_reference=conversation_reference,
                     status="open",
                 )
                 self.db.add(conv)
                 self.db.commit()
                 self.db.refresh(conv)
-
+    
+                print(
+                    f"[CONVERSATION DEBUG] Created "
+                    f"conversation_id={conv.id}"
+                )
+            else:
+                print(
+                    f"[CONVERSATION DEBUG] Reused "
+                    f"conversation_id={conv.id}"
+                )
+    
             conversation_id = conv.id
-
-
-        # Save customer message
-        intent = self.classify_intent(text)
+    
+        # Read the existing conversation BEFORE saving the new message.
+        previous_messages = (
+            self.db.query(Message)
+            .filter(Message.conversation_id == conversation_id)
+            .order_by(Message.id.asc())
+            .all()
+        )
+    
+        pending_order = False
+        order_text = text
+    
+        # The last AI message indicates an incomplete order if it asks
+        # the customer to supply missing order information.
+        if (
+            previous_messages
+            and previous_messages[-1].sender_type == "ai"
+            and "I need the following:"
+            in previous_messages[-1].content
+        ):
+            pending_order = True
+            previous_customer_messages = []
+    
+            # Walk backward through the incomplete-order conversation.
+            # Continue across repeated missing-information prompts.
+            for previous in reversed(previous_messages[:-1]):
+                if previous.sender_type == "customer":
+                    previous_customer_messages.append(previous.content)
+    
+                elif previous.sender_type == "ai":
+                    if "I need the following:" in previous.content:
+                        continue
+    
+                    # Stop at the AI response that came before this order.
+                    break
+    
+            previous_customer_messages.reverse()
+    
+            # Combine all previous order details with the latest reply.
+            order_text = " ".join(
+                previous_customer_messages + [text]
+            )
+    
+            print(
+                "[ORDER DEBUG] Continuing incomplete order. "
+                f"Combined text={order_text!r}"
+            )
+    
+        # A reply to an incomplete order must remain a new-order intent,
+        # even if the reply only says "M", "Size M", or "2".
+        intent = (
+            "new_order"
+            if pending_order
+            else self.classify_intent(text)
+        )
+    
+        # Save the customer's message with its effective intent.
         msg = Message(
             conversation_id=conversation_id,
             sender_type="customer",
@@ -621,79 +712,215 @@ class AIAgent:
         self.db.add(msg)
         self.db.commit()
         self.db.refresh(msg)
-
-        # Get active campaign
-        campaign = self.db.query(Campaign).filter(Campaign.status == "open").first()
+    
+        # Get the active campaign.
+        campaign = (
+            self.db.query(Campaign)
+            .filter(Campaign.status == "open")
+            .first()
+        )
+    
         if not campaign:
-            response = "Sorry, there are no active group buys at the moment."
-            self.tools.send_customer_message(conversation_id, response)
-            return {"response": response, "intent": intent, "order_id": None, "exception": False}
-
-        # Handle based on intent
+            response = (
+                "Sorry, there are no active group buys at the moment."
+            )
+            self.tools.send_customer_message(
+                conversation_id,
+                response,
+            )
+            return {
+                "response": response,
+                "intent": intent,
+                "order_id": None,
+                "exception": False,
+            }
+    
+        # Handle the effective intent.
         if intent == "new_order":
-            return self._handle_new_order(campaign, customer, conversation_id, text)
+            return self._handle_new_order(
+                campaign,
+                customer,
+                conversation_id,
+                order_text,
+            )
+    
         elif intent == "payment_enquiry":
-            return self._handle_payment_enquiry(campaign, customer, conversation_id, text)
+            return self._handle_payment_enquiry(
+                campaign, customer, conversation_id, text
+            )
+    
         elif intent == "order_status":
-            return self._handle_order_status(campaign, customer, conversation_id, text)
+            return self._handle_order_status(
+                campaign, customer, conversation_id, text
+            )
+    
         elif intent == "cancellation":
-            return self._handle_cancellation(campaign, customer, conversation_id, text)
+            return self._handle_cancellation(
+                campaign, customer, conversation_id, text
+            )
+    
         elif intent == "product_question":
-            return self._handle_product_question(campaign, customer, conversation_id, text)
+            return self._handle_product_question(
+                campaign, customer, conversation_id, text
+            )
+    
         elif intent == "complaint":
-            return self._handle_complaint(campaign, customer, conversation_id, text)
-        else:
-            response = "I understand you have a question. Could you provide more details? I can help with ordering, checking order status, payment enquiries, and product information."
-            self.tools.send_customer_message(conversation_id, response)
-            return {"response": response, "intent": intent, "order_id": None, "exception": False}
+            return self._handle_complaint(
+                campaign, customer, conversation_id, text
+            )
+    
+        response = (
+            "I understand you have a question. Could you provide more "
+            "details? I can help with ordering, checking order status, "
+            "payment enquiries, and product information."
+        )
+    
+        self.tools.send_customer_message(
+            conversation_id,
+            response,
+        )
+    
+        return {
+            "response": response,
+            "intent": intent,
+            "order_id": None,
+            "exception": False,
+        }
 
+    
     def _handle_new_order(self, campaign, customer, conversation_id, text):
-        """Handle a new order request."""
+        """Handle a new order or continue an incomplete order."""
+    
         info = self.extract_order_info(text)
-
+    
         missing = []
+    
         if not info["quantity"]:
             missing.append("quantity")
+    
         if not info["color"]:
             missing.append("colour")
+    
         if not info["size"]:
             missing.append("size")
-
+    
         if missing:
             missing_str = " and ".join(missing)
-            response = f"I would like to help you order. However, I need the following: {missing_str}. Could you provide the missing information?"
-            self.tools.send_customer_message(conversation_id, response)
-            return {"response": response, "intent": "new_order", "order_id": None, "exception": False, "missing": missing}
-
-        variant = self.find_variant(campaign.id, info["color"], info["size"])
+    
+            response = (
+                "I would like to help you order. "
+                f"However, I need the following: {missing_str}. "
+                "Could you provide the missing information?"
+            )
+    
+            self.tools.send_customer_message(
+                conversation_id,
+                response,
+            )
+    
+            return {
+                "response": response,
+                "intent": "new_order",
+                "order_id": None,
+                "exception": False,
+                "missing": missing,
+            }
+    
+        variant = self.find_variant(
+            campaign.id,
+            info["color"],
+            info["size"],
+        )
+    
         if not variant:
-            availability = self.tools.get_product_availability(campaign.id)
-            available_str = ", ".join([v["attributes"] for v in availability])
-            response = f"I could not find a variant matching {info['color']} / {info['size']}. Available variants: {available_str}."
-            self.tools.send_customer_message(conversation_id, response)
-            return {"response": response, "intent": "new_order", "order_id": None, "exception": False}
-
-        result = self.tools.create_pending_order(campaign.id, customer.id, variant["variant_id"], info["quantity"])
-
+            availability = self.tools.get_product_availability(
+                campaign.id
+            )
+    
+            available_str = ", ".join(
+                v["attributes"] for v in availability
+            )
+    
+            response = (
+                f"I could not find a variant matching "
+                f"{info['color']} / {info['size']}. "
+                f"Available variants: {available_str}."
+            )
+    
+            self.tools.send_customer_message(
+                conversation_id,
+                response,
+            )
+    
+            return {
+                "response": response,
+                "intent": "new_order",
+                "order_id": None,
+                "exception": False,
+            }
+    
+        result = self.tools.create_pending_order(
+            campaign.id,
+            customer.id,
+            variant["variant_id"],
+            info["quantity"],
+        )
+    
         if result.get("success"):
             response = (
                 f"Thank you, {customer.display_name}. "
-                f"Order created: {info['quantity']} x {variant['attributes']} at RM{variant['price']:.2f} each. "
+                f"Order created: {info['quantity']} x "
+                f"{variant['attributes']} at "
+                f"RM{variant['price']:.2f} each. "
                 f"Total: RM{result['total_amount']:.2f}. "
                 f"Order ID: {result['order_id']}. "
-                f"Status: PENDING_PAYMENT. "
-                f"Payment instructions: {result['payment_instructions']}"
+                "Status: PENDING_PAYMENT. "
+                f"Payment instructions: "
+                f"{result['payment_instructions']}"
             )
-            self.tools.send_customer_message(conversation_id, response, result["order_id"])
-            return {"response": response, "intent": "new_order", "order_id": result["order_id"], "exception": False}
-        else:
-            if result.get("exception_id"):
-                response = result["error"]
-                self.tools.send_customer_message(conversation_id, response, result.get("order_id"))
-                return {"response": response, "intent": "new_order", "order_id": result.get("order_id"), "exception": True}
+    
+            self.tools.send_customer_message(
+                conversation_id,
+                response,
+                result["order_id"],
+            )
+    
+            return {
+                "response": response,
+                "intent": "new_order",
+                "order_id": result["order_id"],
+                "exception": False,
+            }
+    
+        if result.get("exception_id"):
             response = result["error"]
-            self.tools.send_customer_message(conversation_id, response)
-            return {"response": response, "intent": "new_order", "order_id": None, "exception": False}
+    
+            self.tools.send_customer_message(
+                conversation_id,
+                response,
+                result.get("order_id"),
+            )
+    
+            return {
+                "response": response,
+                "intent": "new_order",
+                "order_id": result.get("order_id"),
+                "exception": True,
+            }
+    
+        response = result["error"]
+    
+        self.tools.send_customer_message(
+            conversation_id,
+            response,
+        )
+    
+        return {
+            "response": response,
+            "intent": "new_order",
+            "order_id": None,
+            "exception": False,
+        }
 
     def _handle_payment_enquiry(self, campaign, customer, conversation_id, text):
         """Handle payment-related enquiries. Never marks payment as paid without verification."""
