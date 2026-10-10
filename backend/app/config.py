@@ -4,7 +4,16 @@ from pathlib import Path
 from pydantic_settings import BaseSettings
 from dotenv import load_dotenv
 
-load_dotenv(Path(__file__).parent.parent / ".env")
+# Load .env from multiple possible locations
+_env_paths = [
+    Path(__file__).parent.parent / ".env",          # backend/.env
+    Path(__file__).parent.parent.parent / ".env",    # root/.env
+    Path.cwd() / ".env",                             # current working directory
+]
+for p in _env_paths:
+    if p.exists():
+        load_dotenv(p)
+        break
 
 
 class Settings(BaseSettings):
