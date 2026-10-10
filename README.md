@@ -4,6 +4,12 @@ Your AI Co-Admin. Your Business, Still Moving.
 
 StudyBiz AI is an agentic AI operations assistant for student entrepreneurs who manage Telegram channels or groups for merchandise group buys, preorders, shared purchases, and small student-run businesses.
 
+# Demo live link
+https://synchrost.onrender.com/
+
+# Presentation slides
+https://canva.link/oio8j0n3lowz8sv
+
 ## What It Does
 
 A customer sends a Telegram message. The AI:
