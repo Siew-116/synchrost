@@ -471,52 +471,75 @@ class AIAgent:
         return best
 
     def extract_order_info(self, text):
-        """Extract product, color, size, and quantity from natural language.
-
-        Uses pattern matching for demo mode. Returns structured data.
-        """
+        """Extract order details from a customer's message."""
+        import re
+    
         text_lower = text.lower()
-
+    
         # Extract quantity
         qty_match = re.search(r'\b(\d+)\b', text)
-        if not qty_match:
-            # Check for "two", "one", etc.
-            word_nums = {"one": 1, "two": 2, "three": 3, "four": 4, "five": 5, "six": 6, "seven": 7, "eight": 8, "nine": 9, "ten": 10}
-            for word, num in word_nums.items():
-                if word in text_lower:
-                    qty_match = type("M", (), {"group": lambda s=num: str(s)})()
-                    break
-
         quantity = int(qty_match.group(1)) if qty_match else None
-
+    
+        # Check for number words if no numeric quantity was found
+        if quantity is None:
+            word_nums = {
+                "one": 1,
+                "two": 2,
+                "three": 3,
+                "four": 4,
+                "five": 5,
+                "six": 6,
+                "seven": 7,
+                "eight": 8,
+                "nine": 9,
+                "ten": 10,
+            }
+    
+            for word, num in word_nums.items():
+                if re.search(rf'\b{word}\b', text_lower):
+                    quantity = num
+                    break
+    
         # Extract color
+        colors = [
+            "black",
+            "white",
+            "red",
+            "blue",
+            "green",
+            "yellow",
+            "pink",
+            "purple",
+            "orange",
+            "brown",
+            "grey",
+            "gray",
+            "beige",
+        ]
+    
         color = None
-        for c in ["black", "white", "red", "blue", "green", "grey", "gray", "navy", "maroon"]:
-            if c in text_lower:
-                color = c.capitalize()
+        for c in colors:
+            if re.search(rf'\b{c}\b', text_lower):
+                color = c
                 break
-
+    
         # Extract size
         size = None
-        for s in ["xs", "s", "m", "l", "xl", "xxl"]:
-            # Match size as standalone letter or after "size"
-            pattern = rf'\bsize\s+{s}\b' if s != "s" else rf'\bsize\s+{s}\b'
-            if re.search(pattern, text_lower):
-                size = s.upper()
-                break
-            # Also match standalone size mentions like "in M" or "size M"
-            if re.search(rf'\b{re.escape(s)}\b', text_lower) and s in ["m", "l", "xl", "xxl"]:
-                # Be careful: "m" could be part of a word. Check context.
-                if re.search(rf'(?:size\s+|in\s+|/\s*){re.escape(s)}\b', text_lower):
-                    size = s.upper()
-                    break
-
+        size_match = re.search(
+            r'\b(?:size\s*)?(XS|S|M|L|XL|XXL|XXXL)\b',
+            text,
+            re.IGNORECASE,
+        )
+    
+        if size_match:
+            size = size_match.group(1).upper()
+    
         return {
             "quantity": quantity,
             "color": color,
             "size": size,
         }
-
+        
     def find_variant(self, campaign_id, color, size):
         """Find a product variant matching the extracted color and size."""
         availability = self.tools.get_product_availability(campaign_id)
