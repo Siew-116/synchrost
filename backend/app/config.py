@@ -24,7 +24,7 @@ class Settings(BaseSettings):
     DATABASE_URL: str = "sqlite:///./studybiz.db"
 
     TELEGRAM_BOT_TOKEN: str = ""
-    TELEGRAM_CONNECTED: bool = False
+    TELEGRAM_CONNECTED: bool = True
     TELEGRAM_WEBHOOK_URL: str = ""
 
     LLM_API_KEY: str = ""
