@@ -865,7 +865,7 @@ class AIAgent:
                 "missing": missing,
             }
     
-        variant = self.find_variant(
+        variant = self.tools.find_variant(
             campaign.id,
             info["color"],
             info["size"],
