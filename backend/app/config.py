@@ -23,6 +23,7 @@ class Settings(BaseSettings):
     LLM_MODEL: str = "gpt-4o-mini"
 
     DEMO_MODE: bool = True
+    # EXAM_MODE is the internal name; UI shows it as "Busy Mode"
     EXAM_MODE: bool = False
 
     HOST: str = "0.0.0.0"

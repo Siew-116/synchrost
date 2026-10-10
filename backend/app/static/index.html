@@ -1,0 +1,831 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>StudyBiz AI - Your AI Co-Admin</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #fafaf9; color: #1c1917; }
+        .layout { display: flex; min-height: 100vh; }
+        .sidebar { width: 220px; background: #fff; border-right: 1px solid #e7e5e4; padding: 0; flex-shrink: 0; display: flex; flex-direction: column; }
+        .sidebar-header { padding: 20px; border-bottom: 1px solid #e7e5e4; }
+        .sidebar-header h1 { font-size: 17px; font-weight: 700; }
+        .sidebar-header p { font-size: 11px; color: #78716c; margin-top: 2px; }
+        .nav { padding: 8px; flex: 1; }
+        .nav-item { display: flex; align-items: center; gap: 10px; padding: 9px 12px; border-radius: 8px; font-size: 13px; font-weight: 500; margin-bottom: 2px; cursor: pointer; color: #57534e; transition: all 0.15s; }
+        .nav-item:hover { background: #f5f5f4; }
+        .nav-item.active { background: #f0fdfa; color: #0f766e; }
+        .nav-section { font-size: 10px; font-weight: 700; color: #a8a29e; text-transform: uppercase; padding: 12px 12px 4px; letter-spacing: 0.5px; }
+        .sidebar-footer { padding: 12px; border-top: 1px solid #e7e5e4; }
+        .demo-badge { display: flex; align-items: center; gap: 6px; font-size: 11px; color: #78716c; }
+        .demo-dot { width: 7px; height: 7px; border-radius: 50%; background: #f59e0b; }
+        .main { flex: 1; overflow-y: auto; padding: 28px; max-width: 1000px; }
+        .main h2 { font-size: 22px; font-weight: 700; margin-bottom: 2px; }
+        .main .subtitle { font-size: 13px; color: #78716c; margin-bottom: 20px; }
+        .card { background: #fff; border: 1px solid #e7e5e4; border-radius: 10px; padding: 20px; margin-bottom: 14px; box-shadow: 0 1px 2px rgba(0,0,0,0.03); }
+        .grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 16px; }
+        .metric { background: #fff; border: 1px solid #e7e5e4; border-radius: 10px; padding: 14px; }
+        .metric-label { font-size: 11px; color: #78716c; margin-bottom: 2px; }
+        .metric-value { font-size: 22px; font-weight: 700; }
+        .badge { display: inline-flex; align-items: center; padding: 2px 8px; border-radius: 9999px; font-size: 10px; font-weight: 500; }
+        .badge-green { background: #dcfce7; color: #166534; }
+        .badge-amber { background: #fef3c7; color: #92400e; }
+        .badge-red { background: #fee2e2; color: #991b1b; }
+        .badge-blue { background: #dbeafe; color: #1e40af; }
+        .badge-grey { background: #f5f5f4; color: #57534e; }
+        .table { width: 100%; border-collapse: collapse; font-size: 13px; }
+        .table th { text-align: left; padding: 10px 12px; font-weight: 500; color: #57534e; background: #fafaf9; border-bottom: 1px solid #e7e5e4; }
+        .table td { padding: 10px 12px; border-bottom: 1px solid #f5f5f4; }
+        .table tr:hover { background: #fafaf9; cursor: pointer; }
+        .ai-summary { border-left: 4px solid #14b8a6; }
+        .ai-summary h3 { font-size: 13px; font-weight: 600; color: #44403c; margin-bottom: 2px; }
+        .ai-summary p { font-size: 13px; color: #57534e; }
+        .exception-item { border-left: 4px solid #f59e0b; padding-left: 12px; margin-bottom: 12px; }
+        .exception-type { font-size: 10px; font-weight: 600; color: #d97706; text-transform: uppercase; }
+        .exception-desc { font-size: 13px; color: #57534e; margin-top: 2px; }
+        .exception-action { font-size: 11px; color: #a8a29e; margin-top: 2px; }
+        .btn { padding: 7px 14px; border-radius: 8px; font-size: 12px; font-weight: 500; cursor: pointer; border: none; }
+        .btn-primary { background: #0d9488; color: #fff; }
+        .btn-primary:hover { background: #0f766e; }
+        .btn-secondary { background: #f5f5f4; color: #44403c; }
+        .btn-secondary:hover { background: #e7e5e4; }
+        .btn-danger { background: #dc2626; color: #fff; }
+        .btn-sm { padding: 4px 10px; font-size: 11px; }
+        .chat-input { display: flex; gap: 8px; }
+        .chat-input input { flex: 1; padding: 8px 12px; border: 1px solid #e7e5e4; border-radius: 8px; font-size: 13px; }
+        .chat-input input:focus { outline: none; border-color: #14b8a6; box-shadow: 0 0 0 2px #ccfbf1; }
+        .chat-messages { max-height: 380px; overflow-y: auto; margin-bottom: 12px; }
+        .chat-msg { margin-bottom: 10px; display: flex; gap: 10px; }
+        .chat-avatar { width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 600; flex-shrink: 0; }
+        .avatar-ai { background: #ccfbf1; color: #0f766e; }
+        .avatar-user { background: #dbeafe; color: #1e40af; }
+        .avatar-sys { background: #f5f5f4; color: #78716c; }
+        .chat-bubble { background: #fafaf9; border-radius: 8px; padding: 10px; font-size: 13px; max-width: 460px; }
+        .chat-bubble small { color: #a8a29e; font-size: 10px; display: block; margin-top: 3px; }
+        .suggestions { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 12px; }
+        .suggestion { background: #f5f5f4; color: #44403c; padding: 5px 10px; border-radius: 8px; font-size: 11px; cursor: pointer; border: none; }
+        .suggestion:hover { background: #e7e5e4; }
+        .page { display: none; }
+        .page.active { display: block; }
+        .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+        .log-item { display: flex; align-items: flex-start; gap: 8px; margin-bottom: 8px; font-size: 13px; }
+        .loading { text-align: center; padding: 40px; color: #a8a29e; }
+        .tabs { display: flex; gap: 0; margin-bottom: 16px; border-bottom: 2px solid #e7e5e4; }
+        .tab { padding: 8px 16px; font-size: 13px; font-weight: 500; color: #78716c; cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -2px; }
+        .tab:hover { color: #44403c; }
+        .tab.active { color: #0f766e; border-bottom-color: #0f766e; }
+        .toggle { position: relative; width: 40px; height: 22px; background: #d6d3d1; border-radius: 9999px; cursor: pointer; transition: background 0.2s; }
+        .toggle.on { background: #0d9488; }
+        .toggle::after { content: ''; position: absolute; top: 2px; left: 2px; width: 18px; height: 18px; background: #fff; border-radius: 50%; transition: transform 0.2s; }
+        .toggle.on::after { transform: translateX(18px); }
+        .rule-config { background: #fafaf9; border-radius: 8px; padding: 12px; margin-top: 10px; }
+        .rule-config label { display: block; font-size: 11px; color: #78716c; margin-bottom: 4px; }
+        .rule-config select, .rule-config input { padding: 6px 10px; border: 1px solid #e7e5e4; border-radius: 6px; font-size: 13px; width: 100%; margin-bottom: 8px; }
+        .hero-banner { background: linear-gradient(135deg, #0d9488, #0f766e); border-radius: 12px; padding: 24px; color: #fff; margin-bottom: 16px; }
+        .hero-banner h2 { font-size: 20px; font-weight: 700; margin-bottom: 4px; color: #fff; }
+        .hero-banner p { font-size: 13px; opacity: 0.9; }
+        .stat-row { display: flex; gap: 20px; margin-top: 16px; }
+        .hero-stat { text-align: left; }
+        .hero-stat-num { font-size: 24px; font-weight: 700; }
+        .hero-stat-label { font-size: 11px; opacity: 0.8; }
+        .empty-state { text-align: center; padding: 40px; color: #a8a29e; font-size: 14px; }
+        .quick-action { display: flex; align-items: center; gap: 10px; padding: 12px; border: 1px solid #e7e5e4; border-radius: 8px; cursor: pointer; transition: all 0.15s; }
+        .quick-action:hover { border-color: #14b8a6; background: #f0fdfa; }
+        .quick-action-icon { width: 36px; height: 36px; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 700; flex-shrink: 0; }
+        .quick-action-text h4 { font-size: 13px; font-weight: 600; }
+        .quick-action-text p { font-size: 11px; color: #a8a29e; }
+        .code-block { background: #1c1917; color: #d6d3d1; border-radius: 8px; padding: 14px; font-size: 12px; overflow-x: auto; font-family: 'Consolas', monospace; white-space: pre; }
+        .order-detail-panel { background: #fafaf9; border-radius: 8px; padding: 14px; margin-top: 10px; }
+        .detail-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; font-size: 12px; }
+        .detail-grid small { color: #a8a29e; display: block; }
+        .detail-grid span { font-weight: 500; }
+    </style>
+</head>
+<body>
+<div class="layout">
+    <div class="sidebar">
+        <div class="sidebar-header">
+            <h1>StudyBiz AI</h1>
+            <p>Your AI Co-Admin</p>
+        </div>
+        <nav class="nav" id="nav"></nav>
+        <div class="sidebar-footer">
+            <div class="demo-badge">
+                <span class="demo-dot"></span>
+                <span id="mode-label">Demo Mode</span>
+            </div>
+        </div>
+    </div>
+    <div class="main" id="content">
+        <div class="loading">Loading...</div>
+    </div>
+</div>
+
+<script>
+const API = '/api';
+const pages = [
+    { id: 'overview', label: 'Overview', section: 'main' },
+    { id: 'ai-admin', label: 'AI Co-Admin', section: 'main' },
+    { id: 'orders', label: 'Orders', section: 'ops' },
+    { id: 'customers', label: 'Customers', section: 'ops' },
+    { id: 'approvals', label: 'Approvals', section: 'ops' },
+    { id: 'automation', label: 'Automation Rules', section: 'config' },
+    { id: 'settings', label: 'Settings', section: 'config' },
+];
+
+let currentPage = 'overview';
+let busyMode = false;
+
+function renderNav() {
+    const sections = {};
+    pages.forEach(p => {
+        if (!sections[p.section]) sections[p.section] = [];
+        sections[p.section].push(p);
+    });
+    const sectionLabels = { main: 'Main', ops: 'Operations', config: 'Configuration' };
+    let html = '';
+    Object.keys(sections).forEach(s => {
+        html += `<div class="nav-section">${sectionLabels[s]}</div>`;
+        sections[s].forEach(p => {
+            html += `<div class="nav-item ${p.id === currentPage ? 'active' : ''}" onclick="navigate('${p.id}')">${p.label}</div>`;
+        });
+    });
+    document.getElementById('nav').innerHTML = html;
+}
+
+function navigate(page) {
+    currentPage = page;
+    renderNav();
+    const content = document.getElementById('content');
+    content.innerHTML = '<div class="loading">Loading...</div>';
+    const renderer = pages_render[page];
+    if (renderer) renderer(content);
+}
+
+async function api(path) {
+    const resp = await fetch(`${API}${path}`);
+    return resp.json();
+}
+
+async function apiPost(path, body) {
+    const resp = await fetch(`${API}${path}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
+    });
+    return resp.json();
+}
+
+async function apiPut(path, body) {
+    const resp = await fetch(`${API}${path}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
+    });
+    return resp.json();
+}
+
+const pages_render = {};
+
+/* ===================== OVERVIEW - clean, pitch-ready ===================== */
+pages_render.overview = async (el) => {
+    const data = await api('/dashboard/metrics');
+    const campaign = data.active_campaigns && data.active_campaigns[0] ? data.active_campaigns[0] : null;
+    const closesIn = campaign ? Math.ceil((new Date(campaign.closes_at) - new Date()) / (1000*60*60*24)) : null;
+
+    let html = `<h2>Dashboard</h2><p class="subtitle">${campaign ? campaign.name : 'No active campaign'}</p>`;
+
+    // Hero banner - one glance, one number
+    html += `<div class="hero-banner">
+        <h2>${campaign ? campaign.name : 'No Active Group Buy'}</h2>
+        <p>${campaign ? (closesIn > 0 ? 'Closes in ' + closesIn + ' day' + (closesIn !== 1 ? 's' : '') : 'Campaign closed') : 'Start a new campaign to begin'}</p>
+        <div class="stat-row">
+            <div class="hero-stat"><div class="hero-stat-num">${data.total_orders}</div><div class="hero-stat-label">Total Orders</div></div>
+            <div class="hero-stat"><div class="hero-stat-num">${data.orders_awaiting_payment}</div><div class="hero-stat-label">Awaiting Payment</div></div>
+            <div class="hero-stat"><div class="hero-stat-num">${data.open_exceptions}</div><div class="hero-stat-label">Need Attention</div></div>
+            <div class="hero-stat"><div class="hero-stat-num">${data.automated_actions_completed}</div><div class="hero-stat-label">AI Actions Done</div></div>
+        </div>
+    </div>`;
+
+    // AI summary - the pitch moment
+    if (data.ai_summary) {
+        html += `<div class="card ai-summary"><h3>AI Summary</h3><p>${data.ai_summary}</p></div>`;
+    }
+
+    // Priority actions - what you need to do right now
+    if (data.priority_exceptions && data.priority_exceptions.length > 0) {
+        html += `<div class="card">
+            <h3 style="font-size:14px;font-weight:600;margin-bottom:12px;">Needs Your Attention</h3>`;
+        data.priority_exceptions.forEach(e => {
+            html += `<div class="exception-item">
+                <div class="exception-type">${e.type.replace(/_/g, ' ')}</div>
+                <div class="exception-desc">${e.description.substring(0, 120)}${e.description.length > 120 ? '...' : ''}</div>
+                <div class="exception-action">${e.recommended_action}</div>
+            </div>`;
+        });
+        html += `<button class="btn btn-primary btn-sm" style="margin-top:8px;" onclick="navigate('approvals')">Review All Exceptions</button></div>`;
+    }
+
+    // Quick actions - for demo flow
+    html += `<h3 style="font-size:13px;font-weight:600;margin:16px 0 10px;">Quick Actions</h3>
+    <div class="two-col">
+        <div class="quick-action" onclick="navigate('ai-admin')">
+            <div class="quick-action-icon" style="background:#ccfbf1;color:#0f766e;">AI</div>
+            <div class="quick-action-text"><h4>Ask AI Co-Admin</h4><p>Get instant business insights</p></div>
+        </div>
+        <div class="quick-action" onclick="navigate('orders')">
+            <div class="quick-action-icon" style="background:#dbeafe;color:#1e40af;">OR</div>
+            <div class="quick-action-text"><h4>View Orders</h4><p>Track all orders in one place</p></div>
+        </div>
+        <div class="quick-action" onclick="navigate('customers')">
+            <div class="quick-action-icon" style="background:#fef3c7;color:#92400e;">CU</div>
+            <div class="quick-action-text"><h4>Customer Messages</h4><p>Review conversations and respond</p></div>
+        </div>
+        <div class="quick-action" onclick="navigate('approvals')">
+            <div class="quick-action-icon" style="background:#fee2e2;color:#991b1b;">EX</div>
+            <div class="quick-action-text"><h4>Approve Exceptions</h4><p>${data.open_exceptions} item${data.open_exceptions !== 1 ? 's' : ''} waiting</p></div>
+        </div>
+    </div>`;
+
+    el.innerHTML = html;
+};
+
+/* ===================== AI CO-ADMIN - unchanged ===================== */
+pages_render['ai-admin'] = async (el) => {
+    el.innerHTML = `
+        <h2>AI Co-Admin</h2><p class="subtitle">Ask your AI assistant about business operations</p>
+        <div class="card" style="padding:0;overflow:hidden;">
+            <div class="chat-messages" id="chat-messages" style="padding:14px;">
+                <div class="chat-msg"><div class="chat-avatar avatar-ai">AI</div><div class="chat-bubble">I am your AI Co-Admin. I can answer questions about orders, customers, supplier summaries, and exceptions. I can also draft announcements and summarise activity while you were studying.</div></div>
+            </div>
+            <div style="border-top:1px solid #e7e5e4;padding:12px;">
+                <div class="chat-input">
+                    <input type="text" id="chat-input" placeholder="Ask about orders, customers, summaries..." />
+                    <button class="btn btn-primary" onclick="sendQuery()">Send</button>
+                </div>
+            </div>
+        </div>
+        <div class="suggestions">
+            <button class="suggestion" onclick="fillQuery('How many orders have been placed?')">How many orders?</button>
+            <button class="suggestion" onclick="fillQuery('Which orders are incomplete?')">Incomplete orders?</button>
+            <button class="suggestion" onclick="fillQuery('Prepare the final supplier quantity list')">Supplier list</button>
+            <button class="suggestion" onclick="fillQuery('Show customers who have not completed payment')">Unpaid customers</button>
+            <button class="suggestion" onclick="fillQuery('Draft an announcement that ordering closes tonight')">Draft announcement</button>
+            <button class="suggestion" onclick="fillQuery('Summarise what happened while I was studying')">Activity summary</button>
+        </div>
+    `;
+    document.getElementById('chat-input').addEventListener('keydown', e => { if (e.key === 'Enter') sendQuery(); });
+};
+
+function fillQuery(text) {
+    document.getElementById('chat-input').value = text;
+}
+
+async function sendQuery() {
+    const input = document.getElementById('chat-input');
+    const text = input.value.trim();
+    if (!text) return;
+    const msgs = document.getElementById('chat-messages');
+    msgs.innerHTML += `<div class="chat-msg"><div class="chat-avatar avatar-user">You</div><div class="chat-bubble">${text}</div></div>`;
+    input.value = '';
+    msgs.innerHTML += `<div class="chat-msg" id="loading-msg"><div class="chat-avatar avatar-ai">AI</div><div class="chat-bubble">Processing...</div></div>`;
+    msgs.scrollTop = msgs.scrollHeight;
+    const data = await apiPost('/agent/query', { query: text });
+    document.getElementById('loading-msg').remove();
+    msgs.innerHTML += `<div class="chat-msg"><div class="chat-avatar avatar-ai">AI</div><div class="chat-bubble">${data.response.replace(/\n/g, '<br>')}<small>Simulated AI (deterministic mode)</small></div></div>`;
+    msgs.scrollTop = msgs.scrollHeight;
+}
+
+/* ===================== ORDERS - combined module with tabs ===================== */
+let ordersTab = 'all';
+pages_render.orders = async (el) => {
+    const data = await api('/orders');
+    const campaigns = await api('/campaigns');
+
+    // Count by status for tab badges
+    const counts = { all: data.length, pending: 0, confirmed: 0, completed: 0, cancelled: 0 };
+    data.forEach(o => {
+        if (o.status === 'pending_payment') counts.pending++;
+        if (o.status === 'confirmed') counts.confirmed++;
+        if (o.status === 'completed') counts.completed++;
+        if (o.status === 'cancelled') counts.cancelled++;
+    });
+
+    let html = `<h2>Orders</h2><p class="subtitle">All orders, payments, and fulfilment in one place</p>`;
+
+    // Campaign context bar
+    if (campaigns.length > 0) {
+        const c = campaigns[0];
+        html += `<div class="card" style="display:flex;justify-content:space-between;align-items:center;">
+            <div><span style="font-size:13px;font-weight:600;">${c.name}</span><br><span style="font-size:11px;color:#78716c;">${c.total_orders} orders | Closes ${c.closes_at ? new Date(c.closes_at).toLocaleDateString() : '-'}</span></div>
+            <button class="btn btn-secondary btn-sm" onclick="navigate('supplier')">Supplier Summary</button>
+        </div>`;
+    }
+
+    // Tabs
+    html += `<div class="tabs">
+        <div class="tab ${ordersTab==='all'?'active':''}" onclick="switchOrdersTab('all')">All (${counts.all})</div>
+        <div class="tab ${ordersTab==='pending'?'active':''}" onclick="switchOrdersTab('pending')">Pending Payment (${counts.pending})</div>
+        <div class="tab ${ordersTab==='confirmed'?'active':''}" onclick="switchOrdersTab('confirmed')">Confirmed (${counts.confirmed})</div>
+        <div class="tab ${ordersTab==='completed'?'active':''}" onclick="switchOrdersTab('completed')">Completed (${counts.completed})</div>
+        <div class="tab ${ordersTab==='cancelled'?'active':''}" onclick="switchOrdersTab('cancelled')">Cancelled (${counts.cancelled})</div>
+    </div>`;
+
+    // Filter orders
+    let filtered = data;
+    if (ordersTab === 'pending') filtered = data.filter(o => o.status === 'pending_payment');
+    else if (ordersTab === 'confirmed') filtered = data.filter(o => o.status === 'confirmed');
+    else if (ordersTab === 'completed') filtered = data.filter(o => o.status === 'completed');
+    else if (ordersTab === 'cancelled') filtered = data.filter(o => o.status === 'cancelled');
+
+    // Orders table
+    html += `<div class="card" style="padding:0;overflow:hidden;"><table class="table"><thead><tr><th>ID</th><th>Customer</th><th>Items</th><th>Total</th><th>Order</th><th>Payment</th><th>Fulfilment</th><th></th></tr></thead><tbody>`;
+    if (filtered.length === 0) {
+        html += '<tr><td colspan="8" style="text-align:center;padding:24px;color:#a8a29e;">No orders in this category.</td></tr>';
+    } else {
+        const sb = s => ({ draft: 'badge-grey', pending_payment: 'badge-amber', confirmed: 'badge-green', cancelled: 'badge-red', completed: 'badge-blue', unpaid: 'badge-amber', payment_submitted: 'badge-amber', verifying: 'badge-amber', paid: 'badge-green', rejected: 'badge-red', refunded: 'badge-grey', not_ready: 'badge-grey', preparing: 'badge-blue', ready: 'badge-blue', dispatched: 'badge-blue', collected: 'badge-green' }[s] || 'badge-grey');
+        filtered.forEach(o => {
+            html += `<tr onclick="showOrderDetail(${o.id})">
+                <td>#${o.id}</td>
+                <td>${o.customer}</td>
+                <td style="font-size:12px;">${o.items.map(i => i.quantity + 'x ' + i.variant).join(', ')}</td>
+                <td>RM${o.total_amount.toFixed(2)}</td>
+                <td><span class="badge ${sb(o.status)}">${o.status.replace(/_/g,' ')}</span></td>
+                <td><span class="badge ${sb(o.payment_status)}">${o.payment_status.replace(/_/g,' ')}</span></td>
+                <td><span class="badge ${sb(o.fulfilment_status)}">${o.fulfilment_status.replace(/_/g,' ')}</span></td>
+                <td><span style="font-size:11px;color:#0d9488;">View</span></td>
+            </tr>`;
+        });
+    }
+    html += `</tbody></table></div>`;
+
+    // Order detail placeholder
+    html += `<div id="order-detail-container"></div>`;
+
+    el.innerHTML = html;
+};
+
+function switchOrdersTab(tab) {
+    ordersTab = tab;
+    navigate('orders');
+}
+
+async function showOrderDetail(id) {
+    const o = await api(`/orders/${id}`);
+    const sb = s => ({ draft: 'badge-grey', pending_payment: 'badge-amber', confirmed: 'badge-green', cancelled: 'badge-red', completed: 'badge-blue', unpaid: 'badge-amber', payment_submitted: 'badge-amber', verifying: 'badge-amber', paid: 'badge-green', rejected: 'badge-red', refunded: 'badge-grey', not_ready: 'badge-grey', preparing: 'badge-blue', ready: 'badge-blue', dispatched: 'badge-blue', collected: 'badge-green' }[s] || 'badge-grey');
+    let html = `<div class="card">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+            <h3 style="font-size:14px;font-weight:600;">Order #${o.id} - ${o.customer}</h3>
+            <button class="btn btn-secondary btn-sm" onclick="document.getElementById('order-detail-container').innerHTML=''">Close</button>
+        </div>
+        <div class="detail-grid">
+            <div><small>Status</small><span class="badge ${sb(o.status)}">${o.status.replace(/_/g,' ')}</span></div>
+            <div><small>Payment</small><span class="badge ${sb(o.payment_status)}">${o.payment_status.replace(/_/g,' ')}</span></div>
+            <div><small>Fulfilment</small><span class="badge ${sb(o.fulfilment_status)}">${o.fulfilment_status.replace(/_/g,' ')}</span></div>
+            <div><small>Total</small><span>RM${o.total_amount.toFixed(2)}</span></div>
+            <div><small>Created</small><span>${o.created_at ? new Date(o.created_at).toLocaleString() : '-'}</span></div>
+            <div><small>Updated</small><span>${o.updated_at ? new Date(o.updated_at).toLocaleString() : '-'}</span></div>
+        </div>`;
+
+    // Items
+    html += `<div style="margin-top:12px;"><small style="color:#a8a29e;font-size:11px;">Items</small>`;
+    o.items.forEach(i => { html += `<div style="font-size:13px;padding:4px 0;">${i.quantity}x ${i.variant} - RM${i.unit_price.toFixed(2)} each</div>`; });
+    html += `</div>`;
+
+    // Payments
+    if (o.payments && o.payments.length > 0) {
+        html += `<div style="margin-top:12px;"><small style="color:#a8a29e;font-size:11px;">Payments</small>`;
+        o.payments.forEach(p => {
+            html += `<div style="font-size:12px;padding:4px 0;">RM${p.amount.toFixed(2)} - <span class="badge ${sb(p.status)}">${p.status}</span> ${p.verification_method || ''}</div>`;
+        });
+        html += `</div>`;
+    }
+
+    // Messages
+    if (o.messages && o.messages.length > 0) {
+        html += `<div style="margin-top:12px;"><small style="color:#a8a29e;font-size:11px;">Messages</small>`;
+        o.messages.forEach(m => {
+            html += `<div style="font-size:12px;padding:4px 0;"><b>${m.sender_type}:</b> ${m.content}</div>`;
+        });
+        html += `</div>`;
+    }
+
+    // Actions
+    html += `<div style="display:flex;gap:8px;margin-top:12px;">`;
+    if (o.status === 'pending_payment') {
+        html += `<button class="btn btn-primary btn-sm" onclick="updateOrderStatus(${o.id}, 'confirmed')">Confirm Order</button>`;
+        html += `<button class="btn btn-danger btn-sm" onclick="updateOrderStatus(${o.id}, 'cancelled')">Cancel</button>`;
+    }
+    if (o.status === 'confirmed' && o.fulfilment_status === 'not_ready') {
+        html += `<button class="btn btn-primary btn-sm" onclick="updateOrderFulfilment(${o.id}, 'preparing')">Mark Preparing</button>`;
+    }
+    if (o.fulfilment_status === 'preparing') {
+        html += `<button class="btn btn-primary btn-sm" onclick="updateOrderFulfilment(${o.id}, 'ready')">Mark Ready</button>`;
+    }
+    if (o.fulfilment_status === 'ready') {
+        html += `<button class="btn btn-primary btn-sm" onclick="updateOrderFulfilment(${o.id}, 'dispatched')">Mark Dispatched</button>`;
+    }
+    html += `</div></div>`;
+    document.getElementById('order-detail-container').innerHTML = html;
+}
+
+async function updateOrderStatus(id, status) {
+    await apiPut(`/orders/${id}`, { status });
+    showOrderDetail(id);
+}
+async function updateOrderFulfilment(id, fulfilment_status) {
+    await apiPut(`/orders/${id}`, { fulfilment_status });
+    showOrderDetail(id);
+}
+
+/* ===================== CUSTOMERS - combined with conversations ===================== */
+let customersTab = 'list';
+pages_render.customers = async (el) => {
+    const customers = await api('/customers');
+    const conversations = await api('/inbox/conversations');
+
+    let html = `<h2>Customers</h2><p class="subtitle">Customer records, conversations, and order history</p>`;
+
+    // Tabs
+    html += `<div class="tabs">
+        <div class="tab ${customersTab==='list'?'active':''}" onclick="switchCustomersTab('list')">All Customers (${customers.length})</div>
+        <div class="tab ${customersTab==='inbox'?'active':''}" onclick="switchCustomersTab('inbox')">Conversations (${conversations.filter(c=>c.status==='open').length} open)</div>
+    </div>`;
+
+    if (customersTab === 'list') {
+        html += `<div class="card" style="padding:0;overflow:hidden;"><table class="table"><thead><tr><th>ID</th><th>Name</th><th>Telegram</th><th>Orders</th><th></th></tr></thead><tbody>`;
+        customers.forEach(c => {
+            html += `<tr onclick="showCustomerDetail(${c.id})">
+                <td>#${c.id}</td>
+                <td>${c.display_name}</td>
+                <td style="font-size:12px;">@${c.telegram_username || '-'}</td>
+                <td>${c.order_count}</td>
+                <td><span style="font-size:11px;color:#0d9488;">View</span></td>
+            </tr>`;
+        });
+        html += `</tbody></table></div>`;
+        html += `<div id="customer-detail-container"></div>`;
+    } else {
+        // Conversations
+        if (conversations.length === 0) {
+            html += '<div class="empty-state">No conversations yet.</div>';
+        } else {
+            conversations.forEach(c => {
+                const badgeClass = c.status === 'open' ? 'badge-amber' : c.status === 'resolved' ? 'badge-green' : 'badge-red';
+                html += `<div class="card" style="cursor:pointer;" onclick="loadConversation(${c.id})">
+                    <div style="display:flex;justify-content:space-between;margin-bottom:4px;">
+                        <span style="font-weight:600;font-size:13px;">${c.customer}</span>
+                        <span class="badge ${badgeClass}">${c.status}</span>
+                    </div>
+                    <p style="font-size:12px;color:#78716c;">${c.last_message}</p>
+                    ${c.last_intent ? `<p style="font-size:11px;color:#a8a29e;margin-top:3px;">Intent: ${c.last_intent.replace(/_/g,' ')}</p>` : ''}
+                </div>`;
+            });
+        }
+    }
+
+    el.innerHTML = html;
+};
+
+function switchCustomersTab(tab) {
+    customersTab = tab;
+    navigate('customers');
+}
+
+async function showCustomerDetail(id) {
+    const c = await api(`/customers/${id}`);
+    let html = `<div class="card">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+            <h3 style="font-size:14px;font-weight:600;">${c.display_name}</h3>
+            <button class="btn btn-secondary btn-sm" onclick="document.getElementById('customer-detail-container').innerHTML=''">Close</button>
+        </div>
+        <div style="font-size:12px;color:#78716c;margin-bottom:10px;">
+            Telegram: @${c.telegram_username || '-'} (ID: ${c.telegram_user_id || '-'})
+        </div>`;
+
+    if (c.orders && c.orders.length > 0) {
+        html += `<small style="color:#a8a29e;font-size:11px;">Orders</small>`;
+        c.orders.forEach(o => {
+            const sb = ({ draft:'badge-grey', pending_payment:'badge-amber', confirmed:'badge-green', cancelled:'badge-red', completed:'badge-blue' })[o.status] || 'badge-grey';
+            html += `<div style="font-size:12px;padding:4px 0;">#${o.id} - RM${o.total_amount.toFixed(2)} <span class="badge ${sb}">${o.status}</span></div>`;
+        });
+    }
+
+    if (c.conversations && c.conversations.length > 0) {
+        html += `<div style="margin-top:8px;"><small style="color:#a8a29e;font-size:11px;">Conversations</small>`;
+        c.conversations.forEach(conv => {
+            html += `<div style="font-size:12px;padding:4px 0;">#${conv.id} - ${conv.platform} (${conv.status})</div>`;
+        });
+        html += `</div>`;
+    }
+
+    html += `</div>`;
+    document.getElementById('customer-detail-container').innerHTML = html;
+}
+
+async function loadConversation(id) {
+    const conv = await api(`/inbox/conversations/${id}`);
+    let html = `<h2>Customers</h2><p class="subtitle">Conversation with ${conv.customer}</p><div class="card">`;
+    conv.messages.forEach(m => {
+        const av = m.sender_type === 'customer' ? 'avatar-user' : m.sender_type === 'ai' ? 'avatar-ai' : 'avatar-sys';
+        html += `<div class="chat-msg"><div class="chat-avatar ${av}">${m.sender_type.substring(0,2).toUpperCase()}</div><div class="chat-bubble">${m.content}${m.intent && m.intent !== 'response' ? `<small>Intent: ${m.intent.replace(/_/g,' ')}</small>` : ''}</div></div>`;
+    });
+    if (conv.related_orders && conv.related_orders.length > 0) {
+        html += `<div style="border-top:1px solid #e7e5e4;padding:10px;"><p style="font-size:11px;font-weight:600;color:#78716c;margin-bottom:6px;">Related Orders</p><div style="display:flex;gap:6px;flex-wrap:wrap;">`;
+        conv.related_orders.forEach(o => { html += `<span class="badge badge-blue">#${o.id} - ${o.status}</span>`; });
+        html += `</div></div>`;
+    }
+    html += `<div style="margin-top:12px;display:flex;gap:8px;"><button class="btn btn-secondary btn-sm" onclick="navigate('customers')">Back</button><button class="btn btn-secondary btn-sm" onclick="resolveConv(${conv.id})">Resolve</button><button class="btn btn-secondary btn-sm" onclick="escalateConv(${conv.id})">Escalate</button></div>`;
+    html += `</div>`;
+    document.getElementById('content').innerHTML = html;
+}
+
+async function resolveConv(id) { await apiPost(`/inbox/conversations/${id}/resolve`); navigate('customers'); }
+async function escalateConv(id) { await apiPost(`/inbox/conversations/${id}/escalate`); navigate('customers'); }
+
+/* ===================== APPROVALS - unchanged ===================== */
+pages_render.approvals = async (el) => {
+    const data = await api('/exceptions');
+    let html = `<h2>Approvals and Exceptions</h2><p class="subtitle">Resolve escalated cases and exceptions</p>`;
+    if (data.length === 0) {
+        html += '<div class="empty-state">No open exceptions. All clear.</div>';
+    } else {
+        data.forEach(e => {
+            html += `<div class="card" style="border-left:4px solid #f59e0b;">
+                <div style="margin-bottom:6px;"><span class="badge badge-amber">${e.type.replace(/_/g,' ')}</span>${e.order ? `<span class="badge badge-blue" style="margin-left:6px;">Order #${e.order.id}</span>` : ''}</div>
+                <p style="font-size:13px;color:#57534e;margin-top:6px;">${e.description}</p>
+                ${e.recommended_action ? `<p style="font-size:12px;color:#a8a29e;margin-top:6px;">Recommended: ${e.recommended_action}</p>` : ''}
+                ${e.order ? `<div class="order-detail-panel"><div class="detail-grid"><div><small>Customer</small><span>${e.order.customer}</span></div><div><small>Status</small><span>${e.order.status}</span></div><div><small>Total</small><span>RM${e.order.total_amount.toFixed(2)}</span></div></div></div>` : ''}
+                <div style="display:flex;gap:8px;margin-top:10px;">
+                    <button class="btn btn-primary btn-sm" onclick="resolveExc(${e.id},'approved')">Approve</button>
+                    <button class="btn btn-danger btn-sm" onclick="resolveExc(${e.id},'rejected')">Reject</button>
+                    <button class="btn btn-secondary btn-sm" onclick="resolveExc(${e.id},'more_info')">Request Info</button>
+                </div>
+            </div>`;
+        });
+    }
+    el.innerHTML = html;
+};
+
+async function resolveExc(id, action) {
+    await apiPost(`/exceptions/${id}/resolve`, { action });
+    navigate('approvals');
+}
+
+/* ===================== AUTOMATION RULES - editable ===================== */
+pages_render.automation = async (el) => {
+    const data = await api('/automation/rules');
+    const ruleMeta = {
+        business_hours: {
+            label: 'Business Hours',
+            desc: 'When the business is active. Messages outside these hours are queued.',
+            fields: [
+                { key: 'start', label: 'Start Time', type: 'time' },
+                { key: 'end', label: 'End Time', type: 'time' },
+            ]
+        },
+        late_order_handling: {
+            label: 'Late Order Handling',
+            desc: 'What happens when a customer orders after the deadline.',
+            fields: [
+                { key: 'policy', label: 'Policy', type: 'select', options: ['allow_with_approval', 'reject', 'allow'] }
+            ]
+        },
+        payment_verification: {
+            label: 'Payment Verification',
+            desc: 'Controls whether payment screenshots are required.',
+            fields: [
+                { key: 'screenshot_required', label: 'Screenshot Required', type: 'select', options: ['true', 'false'] },
+                { key: 'auto_verify', label: 'Auto Verify', type: 'select', options: ['false', 'true'] }
+            ]
+        },
+        cancellation_rules: {
+            label: 'Cancellation Rules',
+            desc: 'When customers can cancel orders.',
+            fields: [
+                { key: 'window', label: 'Cancellation Window (hours)', type: 'text' },
+                { key: 'after_payment', label: 'Allow After Payment', type: 'select', options: ['false', 'true'] }
+            ]
+        },
+        auto_reply_eligible: {
+            label: 'Auto Reply Eligible',
+            desc: 'Which customer intents can get automatic AI replies.',
+            fields: [
+                { key: 'intents', label: 'Eligible Intents', type: 'text' }
+            ]
+        },
+        exam_mode: {
+            label: 'Busy Mode',
+            desc: 'Routine operations continue. Non-urgent notifications are batched. Sensitive decisions are queued.',
+            fields: [
+                { key: 'batch_notifications', label: 'Batch Notifications', type: 'select', options: ['true', 'false'] },
+                { key: 'queue_sensitive', label: 'Queue Sensitive Decisions', type: 'select', options: ['true', 'false'] }
+            ]
+        },
+        escalation_conditions: {
+            label: 'Escalation Conditions',
+            desc: 'Which situations must be escalated to the admin.',
+            fields: [
+                { key: 'conditions', label: 'Conditions', type: 'text' }
+            ]
+        },
+    };
+
+    let html = `<h2>Automation Rules</h2><p class="subtitle">Configure business policies. Toggle rules on or off, edit settings inline.</p>`;
+
+    data.forEach(r => {
+        const meta = ruleMeta[r.name] || { label: r.name.replace(/_/g, ' '), desc: 'Custom rule.', fields: [] };
+        const config = r.configuration || {};
+        let editingId = null;
+
+        html += `<div class="card" id="rule-card-${r.id}">
+            <div style="display:flex;justify-content:space-between;align-items:flex-start;">
+                <div style="flex:1;">
+                    <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
+                        <h3 style="font-size:13px;font-weight:600;">${meta.label}</h3>
+                        <div class="toggle ${r.enabled ? 'on' : ''}" onclick="toggleRule(${r.id}, ${r.enabled})"></div>
+                        <span style="font-size:11px;color:#78716c;">${r.enabled ? 'Enabled' : 'Disabled'}</span>
+                    </div>
+                    <p style="font-size:12px;color:#78716c;margin-bottom:8px;">${meta.desc}</p>
+                    <div id="rule-config-${r.id}" class="rule-config" style="display:none;">
+                        ${meta.fields.map(f => {
+                            const val = config[f.key] !== undefined ? config[f.key] : '';
+                            if (f.type === 'select') {
+                                return `<label>${f.label}</label><select id="rule-${r.id}-${f.key}" data-rule="${r.id}" data-key="${f.key}">${f.options.map(o => `<option value="${o}" ${String(val)===String(o)?'selected':''}>${o}</option>`).join('')}</select>`;
+                            } else if (f.type === 'time') {
+                                return `<label>${f.label}</label><input type="time" id="rule-${r.id}-${f.key}" value="${val}" />`;
+                            } else {
+                                return `<label>${f.label}</label><input type="text" id="rule-${r.id}-${f.key}" value="${val}" />`;
+                            }
+                        }).join('')}
+                        <div style="display:flex;gap:6px;margin-top:6px;">
+                            <button class="btn btn-primary btn-sm" onclick="saveRuleConfig(${r.id})">Save</button>
+                            <button class="btn btn-secondary btn-sm" onclick="toggleEditRule(${r.id})">Cancel</button>
+                        </div>
+                    </div>
+                    <div id="rule-summary-${r.id}" style="font-size:12px;color:#57534e;">
+                        ${meta.fields.map(f => {
+                            const val = config[f.key];
+                            return val !== undefined ? `<span style="margin-right:12px;"><small style="color:#a8a29e;">${f.label}:</small> ${val}</span>` : '';
+                        }).join('')}
+                    </div>
+                </div>
+                <button class="btn btn-secondary btn-sm" style="margin-left:12px;" onclick="toggleEditRule(${r.id})">Edit</button>
+            </div>
+        </div>`;
+    });
+
+    html += `<div class="card" style="background:#eff6ff;border:1px solid #bfdbfe;">
+        <h3 style="font-size:13px;font-weight:600;color:#1e40af;margin-bottom:6px;">Safe Defaults (always enforced)</h3>
+        <ul style="font-size:12px;color:#1e40af;list-style:none;line-height:1.6;">
+            <li>- Payments are never auto-verified. Manual confirmation is always required.</li>
+            <li>- Late orders are forwarded to admin for approval, not auto-accepted.</li>
+            <li>- Complaints are always escalated to the admin.</li>
+            <li>- Busy Mode does not override payment controls or cancellation policies.</li>
+            <li>- The AI cannot issue refunds or make financial commitments.</li>
+        </ul>
+    </div>`;
+
+    el.innerHTML = html;
+};
+
+function toggleEditRule(id) {
+    const configDiv = document.getElementById('rule-config-' + id);
+    const summaryDiv = document.getElementById('rule-summary-' + id);
+    if (configDiv.style.display === 'none') {
+        configDiv.style.display = 'block';
+        summaryDiv.style.display = 'none';
+    } else {
+        configDiv.style.display = 'none';
+        summaryDiv.style.display = 'block';
+    }
+}
+
+async function toggleRule(id, enabled) {
+    await apiPut(`/automation/rules/${id}`, { enabled: !enabled });
+    navigate('automation');
+}
+
+async function saveRuleConfig(id) {
+    const inputs = document.querySelectorAll(`[data-rule="${id}"]`);
+    let config = {};
+    inputs.forEach(inp => {
+        const key = inp.getAttribute('data-key');
+        let val = inp.value;
+        if (val === 'true') val = true;
+        if (val === 'false') val = false;
+        config[key] = val;
+    });
+    // Merge with existing config
+    const rules = await api('/automation/rules');
+    const rule = rules.find(r => r.id === id);
+    if (rule) config = { ...rule.configuration, ...config };
+    await apiPut(`/automation/rules/${id}`, { configuration: config });
+    navigate('automation');
+}
+
+/* ===================== SETTINGS - busy mode toggle ===================== */
+pages_render.settings = async (el) => {
+    const settingsData = await api('/settings');
+    const tgStatus = await api('/telegram/status');
+    busyMode = settingsData.busy_mode;
+
+    let html = `<h2>Settings</h2><p class="subtitle">Application configuration and integration status</p>`;
+
+    // Mode card
+    html += `<div class="card"><h3 style="font-size:13px;font-weight:600;margin-bottom:12px;">Application Mode</h3>
+        <div class="grid" style="grid-template-columns:1fr 1fr;">
+            <div class="metric"><div class="metric-label">Mode</div><div style="font-weight:600;font-size:16px;">${settingsData.mode_label}</div></div>
+            <div class="metric">
+                <div class="metric-label">Busy Mode</div>
+                <div style="display:flex;align-items:center;gap:8px;">
+                    <div class="toggle ${busyMode ? 'on' : ''}" id="busy-toggle" onclick="toggleBusyMode()"></div>
+                    <span style="font-size:13px;font-weight:600;color:${busyMode ? '#0d9488' : '#78716c'};">${busyMode ? 'ON' : 'OFF'}</span>
+                </div>
+            </div>
+        </div>
+        <p style="font-size:12px;color:#78716c;margin-top:10px;">Busy Mode: routine operations continue, non-urgent notifications are batched, and sensitive decisions are queued for when you are available.</p>
+    </div>`;
+
+    // Telegram
+    html += `<div class="card"><h3 style="font-size:13px;font-weight:600;margin-bottom:10px;">Telegram Integration</h3>
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
+            <span style="width:8px;height:8px;border-radius:50%;background:${tgStatus.connected ? '#22c55e' : '#f59e0b'};"></span>
+            <span style="font-size:13px;">${tgStatus.connected ? 'Connected to Telegram' : 'Demo mode (not connected)'}</span>
+        </div>
+        <div style="background:#fafaf9;border-radius:8px;padding:10px;font-size:12px;">
+            <p style="color:#a8a29e;">Bot Token: ${tgStatus.bot_token_configured ? 'Configured' : 'Not configured'}</p>
+            <p style="color:#a8a29e;">Webhook URL: ${tgStatus.webhook_url || 'Not set'}</p>
+            <p style="color:#a8a29e;">Mode: ${tgStatus.mode}</p>
+        </div>
+        ${!tgStatus.connected ? '<div style="background:#fffbeb;border:1px solid #fde68a;border-radius:8px;padding:10px;margin-top:8px;"><p style="font-size:12px;color:#92400e;">To connect Telegram: Set TELEGRAM_BOT_TOKEN and TELEGRAM_CONNECTED=true in .env, then set your webhook URL to /api/telegram/webhook.</p></div>' : ''}
+    </div>`;
+
+    // Simulated customer message
+    html += `<div class="card"><h3 style="font-size:13px;font-weight:600;margin-bottom:10px;">Test AI Agent</h3>
+        <p style="font-size:12px;color:#78716c;margin-bottom:10px;">Simulate a customer message to see how the AI handles it.</p>
+        <div style="display:flex;flex-direction:column;gap:6px;">
+            <input type="text" id="sim-name" placeholder="Customer name (e.g. Aisyah)" style="padding:7px 10px;border:1px solid #e7e5e4;border-radius:8px;font-size:13px;" />
+            <input type="text" id="sim-text" placeholder="Message (e.g. Hi, can I order two black hoodies size M?)" style="padding:7px 10px;border:1px solid #e7e5e4;border-radius:8px;font-size:13px;" />
+            <button class="btn btn-primary" style="align-self:flex-start;" onclick="simulateMessage()">Send Test Message</button>
+        </div>
+        <div id="sim-result" style="margin-top:12px;"></div>
+    </div>`;
+
+    // Env config
+    html += `<div class="card"><h3 style="font-size:13px;font-weight:600;margin-bottom:10px;">Environment Variables (.env)</h3>
+        <div class="code-block"># Telegram
+TELEGRAM_BOT_TOKEN=your_bot_token
+TELEGRAM_CONNECTED=false
+
+# AI / LLM (optional)
+LLM_API_KEY=your_api_key
+LLM_MODEL=gpt-4o-mini
+
+# Modes
+DEMO_MODE=true
+EXAM_MODE=false</div>
+        <p style="font-size:11px;color:#a8a29e;margin-top:8px;">EXAM_MODE in .env sets the default for Busy Mode. Use the toggle above to change it at runtime.</p>
+    </div>`;
+
+    el.innerHTML = html;
+};
+
+async function toggleBusyMode() {
+    busyMode = !busyMode;
+    await apiPut('/settings/busy-mode', { enabled: busyMode });
+    // Update UI without full reload
+    const toggle = document.getElementById('busy-toggle');
+    if (toggle) {
+        if (busyMode) toggle.classList.add('on');
+        else toggle.classList.remove('on');
+        const span = toggle.nextElementSibling;
+        if (span) {
+            span.textContent = busyMode ? 'ON' : 'OFF';
+            span.style.color = busyMode ? '#0d9488' : '#78716c';
+        }
+    }
+}
+
+async function simulateMessage() {
+    const name = document.getElementById('sim-name').value;
+    const text = document.getElementById('sim-text').value;
+    if (!name || !text) return;
+    const result = document.getElementById('sim-result');
+    result.innerHTML = '<div class="chat-bubble" style="background:#f0fdfa;">Processing...</div>';
+    const data = await apiPost('/agent/simulate', { display_name: name, text: text });
+    let html = `<div class="chat-bubble" style="background:#f0fdfa;"><small style="color:#a8a29e;font-weight:600;">AI Response</small><br>${data.response}`;
+    if (data.intent) html += `<br><small>Intent: ${data.intent.replace(/_/g,' ')}</small>`;
+    if (data.exception) html += `<br><small style="color:#d97706;">Exception created and forwarded to admin.</small>`;
+    if (data.order_id) html += `<br><small style="color:#2563eb;">Order #${data.order_id} created/updated.</small>`;
+    html += `</div>`;
+    result.innerHTML = html;
+}
+
+// Init
+renderNav();
+navigate('overview');
+</script>
+</body>
+</html>

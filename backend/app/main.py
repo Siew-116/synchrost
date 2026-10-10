@@ -11,6 +11,7 @@ from pathlib import Path
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
 
 from app.config import settings
 from app.database import init_db
@@ -71,7 +72,13 @@ def health():
     return {"status": "ok", "app": settings.APP_NAME, "demo_mode": settings.DEMO_MODE}
 
 
-# Serve frontend (production build)
+# Serve frontend - use bundled HTML if React build not available
 frontend_dist = Path(__file__).parent.parent.parent / "frontend" / "dist"
+bundled_html = Path(__file__).parent / "static" / "index.html"
+
 if frontend_dist.exists():
     app.mount("/", StaticFiles(directory=str(frontend_dist), html=True), name="frontend")
+elif bundled_html.exists():
+    @app.get("/")
+    def serve_index():
+        return FileResponse(str(bundled_html))

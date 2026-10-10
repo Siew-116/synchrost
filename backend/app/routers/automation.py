@@ -23,6 +23,19 @@ def list_rules(db: Session = Depends(get_db)):
     return result
 
 
+@router.get("/rules/{rule_id}")
+def get_rule(rule_id: int, db: Session = Depends(get_db)):
+    r = db.query(AutomationRule).filter(AutomationRule.id == rule_id).first()
+    if not r:
+        raise HTTPException(status_code=404, detail="Rule not found")
+    return {
+        "id": r.id,
+        "name": r.name,
+        "configuration": json.loads(r.configuration) if r.configuration else {},
+        "enabled": r.enabled,
+    }
+
+
 class RuleUpdate(BaseModel):
     enabled: bool | None = None
     configuration: dict | None = None
@@ -40,4 +53,9 @@ def update_rule(rule_id: int, data: RuleUpdate, db: Session = Depends(get_db)):
         r.configuration = json.dumps(data.configuration)
 
     db.commit()
-    return {"id": r.id, "name": r.name, "enabled": r.enabled}
+    return {
+        "id": r.id,
+        "name": r.name,
+        "enabled": r.enabled,
+        "configuration": json.loads(r.configuration) if r.configuration else {},
+    }
