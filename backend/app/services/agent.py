@@ -530,6 +530,24 @@ class AIAgent:
         self.llm_api_key = llm_api_key
         self.demo_mode = demo_mode or not llm_api_key
 
+    
+    def find_variant(self, campaign_id, color, size):
+        """Find an available product variant matching colour and size."""
+    
+        availability = self.tools.get_product_availability(campaign_id)
+    
+        color = color.lower().strip()
+        size = size.upper().strip()
+    
+        for variant in availability:
+            attributes = str(variant.get("attributes", "")).lower()
+    
+            # Match both colour and size in the variant attributes.
+            if color in attributes and size in attributes.upper():
+                return variant
+    
+        return None
+
     def classify_intent(self, text):
         text_lower = text.lower().strip()
     
@@ -865,7 +883,7 @@ class AIAgent:
                 "missing": missing,
             }
     
-        variant = self.tools.find_variant(
+        variant = self.find_variant(
             campaign.id,
             info["color"],
             info["size"],
